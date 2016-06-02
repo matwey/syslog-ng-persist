@@ -5,12 +5,16 @@
 #include <persist-state.h>
 #include <persistable-state-header.h>
 
+static const char systemd_journal[] = "systemd-journal";
+
+struct journald_state {
+	PersistableStateHeader header;
+	char cursor[0];
+};
+
 struct arguments {
 	char* filename;
-	enum {
-		NONE,
-		LIST
-	} action;
+	enum { NONE, LIST, SHOW_JOURNALD_CURSOR } action;
 };
 
 void set_default_args(struct arguments* pargs) {
@@ -20,7 +24,8 @@ void set_default_args(struct arguments* pargs) {
 
 static char argp_doc[] = "syslog-ng-persist - simple syslog-ng persist file tool";
 static struct argp_option argp_options[] = {
-	{"list", 'l', 0,      0, "List existing entries" },
+	{ "list", 'l', 0,      0, "List existing entries" },
+	{ "show-journald-cursor", 0x101, 0, 0, "Show saved journald cursor" },
 	{ 0 }
 };
 
@@ -30,6 +35,9 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state) {
 	switch (key) {
 	case 'l':
 		arguments->action = LIST;
+	break;
+	case 0x101:
+		arguments->action = SHOW_JOURNALD_CURSOR;
 	break;
 	case ARGP_KEY_ARG:
 		if (state->arg_num >= 1)
@@ -65,12 +73,23 @@ int main(int argc, char** argv) {
 		return 1;
 	}
 
+	PersistEntryHandle handle;
+	struct journald_state* journald_state = NULL;
 	PersistState* state = persist_state_new(args.filename);
 
+	gsize state_size;
+	guint8 persist_version;
+
+	persist_state_start_dump(state);
 	switch (args.action) {
 	case LIST:
-		persist_state_start_dump(state);
 		persist_state_foreach_entry(state, &handle_entry, NULL);
+	break;
+	case SHOW_JOURNALD_CURSOR:
+		handle = persist_state_lookup_entry(state, systemd_journal, &state_size, &persist_version);
+		journald_state = persist_state_map_entry(state, handle);
+		printf("journald cursor: %s\n", journald_state->cursor);
+		persist_state_unmap_entry(state, handle);
 	break;
 	default:;
 	}
