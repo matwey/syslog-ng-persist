@@ -1,20 +1,26 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #include <argp.h>
 
 #include <persist-state.h>
 #include <persistable-state-header.h>
 
+#define MAX_CURSOR_LENGTH 1024
+
 static const char systemd_journal[] = "systemd-journal";
 
 struct journald_state {
 	PersistableStateHeader header;
-	char cursor[0];
+	char cursor[MAX_CURSOR_LENGTH];
 };
 
 struct arguments {
 	char* filename;
-	enum { NONE, LIST, SHOW_JOURNALD_CURSOR } action;
+	enum { NONE, LIST, SHOW_JOURNALD_CURSOR, SAVE_JOURNALD_CURSOR } action;
+	union {
+		char* journald_cursor;
+	} action_arg;
 };
 
 void set_default_args(struct arguments* pargs) {
@@ -26,6 +32,7 @@ static char argp_doc[] = "syslog-ng-persist - simple syslog-ng persist file tool
 static struct argp_option argp_options[] = {
 	{ "list", 'l', 0,      0, "List existing entries" },
 	{ "show-journald-cursor", 0x101, 0, 0, "Show saved journald cursor" },
+	{ "save-journald-cursor", 0x102, "JOURNALD_CURSOR", 0, "Save journald cursor" },
 	{ 0 }
 };
 
@@ -38,6 +45,10 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state) {
 	break;
 	case 0x101:
 		arguments->action = SHOW_JOURNALD_CURSOR;
+	break;
+	case 0x102:
+		arguments->action = SAVE_JOURNALD_CURSOR;
+		arguments->action_arg.journald_cursor = arg;
 	break;
 	case ARGP_KEY_ARG:
 		if (state->arg_num >= 1)
@@ -90,6 +101,15 @@ int main(int argc, char** argv) {
 		journald_state = persist_state_map_entry(state, handle);
 		printf("journald cursor: %s\n", journald_state->cursor);
 		persist_state_unmap_entry(state, handle);
+	break;
+	case SAVE_JOURNALD_CURSOR:
+		handle = persist_state_alloc_entry(state, systemd_journal, sizeof(struct journald_state));
+		journald_state = persist_state_map_entry(state, handle);
+		journald_state->header.version = 0;
+		journald_state->header.big_endian = (G_BYTE_ORDER == G_BIG_ENDIAN);
+		strncpy(journald_state->cursor, args.action_arg.journald_cursor, MAX_CURSOR_LENGTH);
+		persist_state_unmap_entry(state, handle);
+		persist_state_commit(state);
 	break;
 	default:;
 	}
