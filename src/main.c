@@ -3,6 +3,7 @@
 #include <string.h>
 #include <argp.h>
 
+#include <messages.h>
 #include <persist-state.h>
 #include <persistable-state-header.h>
 
@@ -86,6 +87,8 @@ int main(int argc, char** argv) {
 
 	PersistEntryHandle handle;
 	struct journald_state* journald_state = NULL;
+
+	msg_init(TRUE);
 	PersistState* state = persist_state_new(args.filename);
 
 	gsize state_size;
@@ -115,6 +118,7 @@ int main(int argc, char** argv) {
 	}
 
 	persist_state_free(state);
+	msg_deinit();
 
 	return 0;
 }
