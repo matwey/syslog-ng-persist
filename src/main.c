@@ -101,6 +101,8 @@ int main(int argc, char** argv) {
 	break;
 	case SHOW_JOURNALD_CURSOR:
 		handle = persist_state_lookup_entry(state, systemd_journal, &state_size, &persist_version);
+		if (handle == 0)
+			break;
 		journald_state = persist_state_map_entry(state, handle);
 		printf("journald cursor: %s\n", journald_state->cursor);
 		persist_state_unmap_entry(state, handle);
