@@ -109,6 +109,8 @@ int main(int argc, char** argv) {
 	break;
 	case SAVE_JOURNALD_CURSOR:
 		handle = persist_state_alloc_entry(state, systemd_journal, sizeof(struct journald_state));
+		if (handle == 0)
+			break;
 		journald_state = persist_state_map_entry(state, handle);
 		journald_state->header.version = 0;
 		journald_state->header.big_endian = (G_BYTE_ORDER == G_BIG_ENDIAN);
